@@ -1,0 +1,235 @@
+---
+title: "Statistical Learning Final"
+author: "Nicole Ely"
+output: html_notebook
+---
+
+
+## Introduction
+
+Nuclear explosions have drastic effects on the people and world around them. From nuclear energy meltdowns, to testing and utilizing nuclear weapons, there have been over hundreds of recorded explosions. Looking at the data behind these explosions, we can begin to understand how these occur, whether the cause is war or accidental meltdown. We can also begin to understand how to prevent accidents, which would open up doors for utilizing nuclear power as a clean source of renewable energy.
+
+## Importing Nuclear Explosions Data
+
+```{r}
+library(tidyverse)
+library(ISLR)
+library(caret)
+library(MASS)
+library(MLeval)
+
+nuclear_explosions <- readr::read_csv("https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2019/2019-08-20/nuclear_explosions.csv")
+
+```
+
+```{r}
+nuclear_explosions <-  na.omit(nuclear_explosions)
+nuclear_explosions <-  nuclear_explosions 
+```
+
+## Investigating and exploring data
+
+```{r}
+head(nuclear_explosions, 10)
+```
+
+
+### How many explosions have come from the USA? USSR?
+
+```{r}
+nuclear_explosions %>% 
+  filter(country == "USA") %>% 
+  nrow()
+```
+1032 of the explosions have originated from the USA.
+
+```{r}
+nuclear_explosions %>% 
+  filter(country == "USSR") %>% 
+  nrow()
+```
+714 explosions originated in the USSR.
+
+
+```{r}
+nuclear_explosions %>% 
+  filter(year == 1945)
+```
+
+In 1945, the U.S. deployed nuclear bombs in response to an attack on Pearl Harbor. These can be seen when filtering the data when the year was 1945.
+
+
+### What years had the highest number of explosions? Were these correlated to war/world issues?
+
+```{r}
+nuclear_explosions %>% 
+  group_by(year) %>% 
+  count() %>% 
+  arrange(desc(n))
+```
+
+
+The year with the highest number of explosions was 1962, at 178 explosions.
+
+### What was occurring at this time? We can look at the data filtered by each year to view the countries of origin and target.
+
+
+```{r}
+nuclear_explosions %>% 
+  filter(year == 1962)
+```
+This year shows numerous explosions originating in the USA, targeting the Nevada test site region. This shows that the US was testing nuclear weapons strenuously in 1962.
+
+Further research into this topic explains the influx in testing, "The tests served various purposes such as: determining the impact of nuclear weapons on the physical environment and on man-made structures like military equipment; searching for possible peaceful uses of these weapons; testing the strength and effectiveness of new weapons; proof-testing existing weapons; and studying the effects of nuclear fallout". 
+
+In this exploration, I expected world war 2-era years, for example 1945, to be rich in nuclear testing and weapon usage. This was very much not the case, and the findings show that there was a boom (no pun intended) in nuclear usage in the 1960s, which can be explained by the information above.
+
+
+
+
+## Visualizing data
+
+Magnitude (body) of explosions:
+
+```{r}
+nuclear_explosions %>% 
+  ggplot(aes(x = magnitude_body)) +
+  geom_histogram(fill = "#FFA59F")
+```
+
+
+```{r}
+nuclear_explosions %>% 
+  ggplot()+
+  geom_bar(
+    mapping = aes(
+      x = country,
+      ), fill = "#FFA59F") +
+  labs(
+    title = "Distribution of country of origin",
+    x = "Country name", 
+    y = "Number of explosions") +
+  coord_flip()
+```
+
+The U.S. is shown to be a powerhouse when it comes to nuclear explosions. I did not expect France to be the second highest, but it is interesting to see.
+
+
+Year and magnitude:
+
+```{r}
+nuclear_explosions %>% 
+  ggplot() +
+  geom_point(aes(x = year, y = magnitude_body), color = "#FFA59F")
+```
+
+The magnitude of the explosions peaked somewhat in the 1970s. A large amount of points sit on or just above 0, which we can assume were testing. 
+
+
+## Modeling
+
+
+Fit a linear model to the data, with magnitude as response, all others numerical attributes as predictors:
+
+
+```{r}
+lm.explosions <- lm(magnitude_body ~ year + latitude + longitude + depth + yield_upper + yield_lower, data = nuclear_explosions)
+summary(lm.explosions)
+```
+The linear regression output shows that predictors "year", "latitude", and "longitude" are significant in the response of magnitude. Utilizing backward stepwise selection, we can remove the variables that do not show significance in the model.
+
+With insignificant variables removed, a second model was fit:
+
+```{r}
+lm.explosions2 <- lm(magnitude_body ~ year + latitude + longitude, data = nuclear_explosions)
+summary(lm.explosions2)
+```
+
+
+
+```{r}
+lm.year <- lm(magnitude_body ~ year, data = nuclear_explosions)
+lm.lat <- lm(magnitude_body ~ latitude, data = nuclear_explosions)
+lm.long <- lm(magnitude_body ~ longitude, data = nuclear_explosions)
+```
+
+```{r}
+attach(nuclear_explosions)
+```
+
+```{r}
+par(mfrow = c(1, 3))
+
+#First plot
+plot(year, magnitude_body)
+abline(lm.year, col = "red", lwd = 3)
+
+#Second plot
+plot(latitude, magnitude_body)
+abline(lm.lat, col = "red", lwd = 3)
+
+#Third plot
+plot(longitude, magnitude_body)
+abline(lm.long, col = "red", lwd = 3)
+```
+
+Here, we can see that a linear model is not ideal for this data.
+
+
+Other methods that can be used include polynomial regression:
+
+```{r}
+lm_fit <- train(magnitude_body ~ year + I(year^2) + I(year^3) + I(year^4),
+                  data =nuclear_explosions, method = "lm")
+  
+
+summary(lm_fit)
+```
+
+
+```{r}
+fit_1 <- train(magnitude_body ~ poly(year, degree = 1), data = nuclear_explosions, method = "lm")
+fit_2 <- train(magnitude_body ~ poly(year, degree = 2), data = nuclear_explosions, method = "lm")
+fit_3 <- train(magnitude_body ~ poly(year, degree = 3), data = nuclear_explosions, method = "lm")
+fit_4 <- train(magnitude_body ~ poly(year, degree = 4), data = nuclear_explosions, method = "lm")
+fit_5 <- train(magnitude_body ~ poly(year, degree = 5), data = nuclear_explosions, method = "lm")
+  
+
+#performing the ANOVA test
+anova(
+  fit_1$finalModel,
+  fit_2$finalModel,
+  fit_3$finalModel,
+  fit_4$finalModel,
+  fit_5$finalModel
+)
+```
+
+We can then use step functions:
+
+```{r}
+table(cut(nuclear_explosions$year, 4))
+```
+
+
+```{r}
+step_fit <- train(magnitude_body ~ cut(year, 4), data = nuclear_explosions,
+                  method = 'glm')
+
+summary(step_fit$finalModel)
+```
+
+## Conclusion
+
+To conclude, we can see that factors impacting the magnitude of a nuclear explosion include year, latitude, and longitude. Nuclear explosions are important to document so we can further understand the limitations and preventative measures needed to be taken in order to feel safer using nuclear power.
+
+## Future work
+
+The data-set felt very limited in the fact that the quantitative variables only included magnitude, latitude, longitude, and year. The significant predictor being year emphasizes the existence of nuclear involvement in times of global conflict, while this is a great place to start, it would be interesting to delve deeper into the causes of these explosions and classify them. For example, is this explosion a bomb, test, or reactor meltdown? What attributes can be used to determine the cause (year, location)?
+
+
+## References
+
+Data set obtained from Tidy Tuesday by R for Data Science, at: https://github.com/rfordatascience/tidytuesday/tree/master/data/2019/2019-08-20
+
+Information about nuclear history: https://www.atomicheritage.org/location/nevada-test-site
