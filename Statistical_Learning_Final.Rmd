@@ -3,6 +3,7 @@ title: "Statistical Learning Final"
 author: "Nicole Ely"
 output: html_notebook
 ---
+Github: https://github.com/nely7539/StatisticalLearningSp21
 
 
 ## Introduction
